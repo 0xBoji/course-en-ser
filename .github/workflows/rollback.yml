@@ -1,0 +1,182 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+      version:
+        description: 'Version to rollback to (previous/specific-tag)'
+        required: true
+        default: 'previous'
+      reason:
+        description: 'Reason for rollback'
+        required: true
+
+env:
+  APP_NAME: course-enrollment
+
+jobs:
+  rollback:
+    name: Rollback to Previous Version
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Validate inputs
+        run: |
+          echo "🔄 Rolling back ${{ github.event.inputs.environment }} to version: ${{ github.event.inputs.version }}"
+          echo "📝 Reason: ${{ github.event.inputs.reason }}"
+      
+      - name: Setup SSH for Production
+        if: github.event.inputs.environment == 'production'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Setup SSH for Staging
+        if: github.event.inputs.environment == 'staging'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.STAGING_EC2_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Backup current version
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+            EC2_HOST="${{ secrets.EC2_HOST }}"
+            EC2_USER="${{ secrets.EC2_USER }}"
+          else
+            EC2_HOST="${{ secrets.STAGING_EC2_HOST }}"
+            EC2_USER="${{ secrets.STAGING_EC2_USER }}"
+          fi
+          
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST "
+            cd /opt/${{ env.APP_NAME }}
+            
+            # Tag current version as backup
+            docker tag ${{ env.APP_NAME }}:latest ${{ env.APP_NAME }}:backup-$(date +%Y%m%d-%H%M%S)
+            
+            echo '📦 Current version backed up'
+          "
+      
+      - name: Rollback to previous version
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+            EC2_HOST="${{ secrets.EC2_HOST }}"
+            EC2_USER="${{ secrets.EC2_USER }}"
+          else
+            EC2_HOST="${{ secrets.STAGING_EC2_HOST }}"
+            EC2_USER="${{ secrets.STAGING_EC2_USER }}"
+          fi
+          
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST "
+            cd /opt/${{ env.APP_NAME }}
+            
+            # Stop current service
+            docker-compose down
+            
+            # Rollback to specified version
+            if [ '${{ github.event.inputs.version }}' == 'previous' ]; then
+              # Use the previous tag
+              docker tag ${{ env.APP_NAME }}:previous ${{ env.APP_NAME }}:latest
+            else
+              # Use specific version tag
+              docker tag ${{ env.APP_NAME }}:${{ github.event.inputs.version }} ${{ env.APP_NAME }}:latest
+            fi
+            
+            # Start service with rolled back version
+            docker-compose up -d
+            
+            echo '🔄 Rollback completed'
+          "
+      
+      - name: Wait for service to start
+        run: sleep 30
+      
+      - name: Health check after rollback
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+            EC2_HOST="${{ secrets.EC2_HOST }}"
+            EC2_USER="${{ secrets.EC2_USER }}"
+          else
+            EC2_HOST="${{ secrets.STAGING_EC2_HOST }}"
+            EC2_USER="${{ secrets.STAGING_EC2_USER }}"
+          fi
+          
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST "
+            if curl -f http://localhost:8080/health; then
+              echo '✅ Rollback successful - service is healthy'
+            else
+              echo '❌ Rollback failed - service is unhealthy'
+              docker-compose logs --tail 50
+              exit 1
+            fi
+          "
+      
+      - name: Verify application functionality
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+            EC2_HOST="${{ secrets.EC2_HOST }}"
+            EC2_USER="${{ secrets.EC2_USER }}"
+          else
+            EC2_HOST="${{ secrets.STAGING_EC2_HOST }}"
+            EC2_USER="${{ secrets.STAGING_EC2_USER }}"
+          fi
+          
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST "
+            # Test critical endpoints
+            curl -f http://localhost:8080/api/v1/courses || exit 1
+            echo '✅ API endpoints are responding'
+          "
+      
+      - name: Notify rollback completion
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow
+          custom_payload: |
+            {
+              "text": "${{ job.status == 'success' && '✅' || '❌' }} Rollback ${{ job.status }}",
+              "attachments": [
+                {
+                  "color": "${{ job.status == 'success' && 'good' || 'danger' }}",
+                  "fields": [
+                    {
+                      "title": "Environment",
+                      "value": "${{ github.event.inputs.environment }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Version",
+                      "value": "${{ github.event.inputs.version }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Reason",
+                      "value": "${{ github.event.inputs.reason }}",
+                      "short": false
+                    },
+                    {
+                      "title": "Triggered by",
+                      "value": "${{ github.actor }}",
+                      "short": true
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

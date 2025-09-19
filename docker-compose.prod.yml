@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Course Enrollment Service (Production with RDS)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: course-enrollment-app
+    environment:
+      # Production RDS Configuration
+      PORT: 8080
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_SSLMODE: ${DB_SSLMODE:-require}
+      
+      # AWS Configuration
+      AWS_REGION: ${AWS_REGION:-ap-southeast-2}
+      
+      # Application Configuration
+      APP_ENV: ${APP_ENV:-production}
+      
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  # Database connection test service
+  db-test:
+    image: postgres:14-alpine
+    container_name: course-enrollment-db-test
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    command: >
+      sh -c "
+        echo 'Testing RDS connection...' &&
+        pg_isready -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} &&
+        echo 'RDS connection successful!' &&
+        psql -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d ${DB_NAME} -c 'SELECT version();' &&
+        echo 'Database query test successful!'
+      "
+    restart: "no"
+    profiles:
+      - test
+
+networks:
+  default:
+    name: course-enrollment-prod
