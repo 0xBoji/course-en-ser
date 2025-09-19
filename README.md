@@ -1,6 +1,6 @@
 # Course Enrollment Service
 
-A robust backend API service for managing course catalog and student enrollments for the Sonic University platform. Built with Go, Gin framework, PostgreSQL, and comprehensive testing.
+A robust backend API service for managing course catalog and student enrollments for the Sonic University platform. Built with Go, Gin framework, PostgreSQL, and comprehensive testing
 
 ## Features
 
