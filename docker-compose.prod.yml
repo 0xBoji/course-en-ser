@@ -18,9 +18,7 @@ services:
 
   # Course Enrollment Service (Production with RDS)
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: course-enrollment-app
     container_name: course-enrollment-app
     env_file:
       - .env
