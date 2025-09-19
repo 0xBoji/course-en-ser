@@ -190,13 +190,11 @@ jobs:
             fi
           "
       
-      - name: Notify deployment status
+      - name: Deployment Summary
         if: always()
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          channel: '#deployments'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-          fields: repo,message,commit,author,action,eventName,ref,workflow
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          echo "🚀 Deployment completed!"
+          echo "📍 Instance: ${{ secrets.EC2_HOST }}"
+          echo "🌐 Health Check: http://${{ secrets.EC2_HOST }}:8080/health"
+          echo "📚 Swagger UI: http://${{ secrets.EC2_HOST }}:8080/swagger/index.html"
+          echo "✅ Status: ${{ job.status }}"
