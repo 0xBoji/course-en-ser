@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"net/url"
 	"sonic-labs/course-enrollment-service/internal/models"
 	"sonic-labs/course-enrollment-service/internal/service"
 
@@ -68,6 +69,17 @@ func (h *CourseHandler) CreateCourse(c *gin.Context) {
 			Message: "Difficulty must be one of: Beginner, Intermediate, Advanced",
 		})
 		return
+	}
+
+	// Validate image URL if provided
+	if req.ImageURL != nil && *req.ImageURL != "" {
+		if !isValidURL(*req.ImageURL) {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   "Validation failed",
+				Message: "Image URL must be a valid URL",
+			})
+			return
+		}
 	}
 
 	course, err := h.courseService.CreateCourse(req)
@@ -142,4 +154,10 @@ func (h *CourseHandler) GetCourseByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, course)
+}
+
+// isValidURL checks if a string is a valid URL
+func isValidURL(str string) bool {
+	u, err := url.Parse(str)
+	return err == nil && u.Scheme != "" && u.Host != ""
 }

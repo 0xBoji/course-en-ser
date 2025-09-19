@@ -59,6 +59,7 @@ func (suite *IntegrationTestSuite) SetupSuite() {
 			title TEXT NOT NULL,
 			description TEXT NOT NULL,
 			difficulty TEXT NOT NULL,
+			image_url TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)
@@ -179,10 +180,16 @@ func (suite *IntegrationTestSuite) makeHTTPRequest(req *http.Request) *httptest.
 
 // createTestCourse is a helper function to create a test course
 func (suite *IntegrationTestSuite) createTestCourse(title, description, difficulty string) *models.Course {
+	return suite.createTestCourseWithImage(title, description, difficulty, nil)
+}
+
+// createTestCourseWithImage is a helper function to create a test course with image URL
+func (suite *IntegrationTestSuite) createTestCourseWithImage(title, description, difficulty string, imageURL *string) *models.Course {
 	course := &models.Course{
 		Title:       title,
 		Description: description,
 		Difficulty:  difficulty,
+		ImageURL:    imageURL,
 	}
 
 	err := suite.db.Create(course).Error

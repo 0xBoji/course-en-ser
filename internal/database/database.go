@@ -56,9 +56,10 @@ func Migrate(db *gorm.DB) error {
 	// Read and execute migration files
 	migrationFiles := []string{
 		"001_create_courses_table.sql",
-		"002_create_enrollments_table.sql",
+		"002_create_enrollments_table.sql", 
 		"003_seed_demo_courses.sql",
 		"004_create_admin_user.sql",
+		"005_add_image_url_to_courses.sql",
 	}
 
 	for _, filename := range migrationFiles {

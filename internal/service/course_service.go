@@ -35,6 +35,7 @@ func (s *courseService) CreateCourse(req models.CourseRequest) (*models.CourseRe
 		Title:       req.Title,
 		Description: req.Description,
 		Difficulty:  req.Difficulty,
+		ImageURL:    req.ImageURL,
 	}
 
 	if err := s.courseRepo.Create(&course); err != nil {
@@ -87,6 +88,7 @@ func (s *courseService) UpdateCourse(id uuid.UUID, req models.CourseRequest) (*m
 	course.Title = req.Title
 	course.Description = req.Description
 	course.Difficulty = req.Difficulty
+	course.ImageURL = req.ImageURL
 
 	if err := s.courseRepo.Update(course); err != nil {
 		return nil, err

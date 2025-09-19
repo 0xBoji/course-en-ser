@@ -9,6 +9,11 @@ import (
 	"github.com/google/uuid"
 )
 
+// stringPtr is a helper function to create a pointer to a string
+func stringPtr(s string) *string {
+	return &s
+}
+
 // TestGetAllCourses tests the GET /api/v1/courses endpoint
 func (suite *IntegrationTestSuite) TestGetAllCourses() {
 	// Create test courses
@@ -76,6 +81,7 @@ func (suite *IntegrationTestSuite) TestCreateCourse() {
 	suite.Equal(courseReq.Title, course.Title)
 	suite.Equal(courseReq.Description, course.Description)
 	suite.Equal(courseReq.Difficulty, course.Difficulty)
+	suite.Nil(course.ImageURL) // Should be nil when not provided
 	suite.NotEqual(uuid.Nil, course.ID)
 	suite.False(course.CreatedAt.IsZero())
 
@@ -84,6 +90,45 @@ func (suite *IntegrationTestSuite) TestCreateCourse() {
 	err := suite.db.First(&dbCourse, "id = ?", course.ID).Error
 	suite.NoError(err)
 	suite.Equal(courseReq.Title, dbCourse.Title)
+}
+
+// TestCreateCourseWithImage tests the POST /api/v1/courses endpoint with image URL
+func (suite *IntegrationTestSuite) TestCreateCourseWithImage() {
+	imageURL := "https://example.com/course-image.jpg"
+	
+	// Prepare request
+	courseReq := models.CourseRequest{
+		Title:       "Test Course with Image",
+		Description: "Test Description with Image",
+		Difficulty:  "Intermediate",
+		ImageURL:    &imageURL,
+	}
+
+	// Make request with authentication
+	headers := suite.getAuthHeaders()
+	recorder := suite.makeRequest("POST", "/api/v1/courses", courseReq, headers)
+
+	// Assert response
+	suite.Equal(http.StatusCreated, recorder.Code)
+
+	var course models.CourseResponse
+	suite.parseResponse(recorder, &course)
+
+	suite.Equal(courseReq.Title, course.Title)
+	suite.Equal(courseReq.Description, course.Description)
+	suite.Equal(courseReq.Difficulty, course.Difficulty)
+	suite.NotNil(course.ImageURL)
+	suite.Equal(imageURL, *course.ImageURL)
+	suite.NotEqual(uuid.Nil, course.ID)
+	suite.False(course.CreatedAt.IsZero())
+
+	// Verify course was actually created in database
+	var dbCourse models.Course
+	err := suite.db.First(&dbCourse, "id = ?", course.ID).Error
+	suite.NoError(err)
+	suite.Equal(courseReq.Title, dbCourse.Title)
+	suite.NotNil(dbCourse.ImageURL)
+	suite.Equal(imageURL, *dbCourse.ImageURL)
 }
 
 // TestCreateCourseValidationErrors tests POST /api/v1/courses with validation errors
@@ -133,6 +178,17 @@ func (suite *IntegrationTestSuite) TestCreateCourseValidationErrors() {
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Difficulty must be one of",
+		},
+		{
+			name: "invalid image URL",
+			request: models.CourseRequest{
+				Title:       "Valid Title",
+				Description: "Valid Description",
+				Difficulty:  "Beginner",
+				ImageURL:    stringPtr("not-a-valid-url"),
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "Image URL must be a valid URL",
 		},
 	}
 

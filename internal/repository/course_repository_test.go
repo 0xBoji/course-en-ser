@@ -35,6 +35,7 @@ func (suite *CourseRepositoryTestSuite) SetupSuite() {
 			title TEXT NOT NULL,
 			description TEXT NOT NULL,
 			difficulty TEXT NOT NULL,
+			image_url TEXT,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)

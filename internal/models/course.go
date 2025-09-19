@@ -13,6 +13,7 @@ type Course struct {
 	Title       string    `json:"title" gorm:"not null;size:255" validate:"required,min=1,max=255" example:"Introduction to Go Programming"`
 	Description string    `json:"description" gorm:"not null;type:text" validate:"required,min=1" example:"Learn the fundamentals of Go programming language"`
 	Difficulty  string    `json:"difficulty" gorm:"not null;size:50" validate:"required,oneof=Beginner Intermediate Advanced" example:"Beginner"`
+	ImageURL    *string   `json:"image_url,omitempty" gorm:"size:500" validate:"omitempty,url" example:"https://your-s3-bucket.s3.amazonaws.com/course-images/go-programming.jpg"`
 	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime" example:"2023-01-01T00:00:00Z"`
 	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime" example:"2023-01-01T00:00:00Z"`
 
@@ -35,9 +36,10 @@ func (Course) TableName() string {
 
 // CourseRequest represents the request payload for creating/updating a course
 type CourseRequest struct {
-	Title       string `json:"title" validate:"required,min=1,max=255" example:"Introduction to Go Programming"`
-	Description string `json:"description" validate:"required,min=1" example:"Learn the fundamentals of Go programming language"`
-	Difficulty  string `json:"difficulty" validate:"required,oneof=Beginner Intermediate Advanced" example:"Beginner"`
+	Title       string  `json:"title" validate:"required,min=1,max=255" example:"Introduction to Go Programming"`
+	Description string  `json:"description" validate:"required,min=1" example:"Learn the fundamentals of Go programming language"`
+	Difficulty  string  `json:"difficulty" validate:"required,oneof=Beginner Intermediate Advanced" example:"Beginner"`
+	ImageURL    *string `json:"image_url,omitempty" validate:"omitempty,url" example:"https://your-s3-bucket.s3.amazonaws.com/course-images/go-programming.jpg"`
 }
 
 // CourseResponse represents the response payload for course operations
@@ -46,6 +48,7 @@ type CourseResponse struct {
 	Title       string    `json:"title" example:"Introduction to Go Programming"`
 	Description string    `json:"description" example:"Learn the fundamentals of Go programming language"`
 	Difficulty  string    `json:"difficulty" example:"Beginner"`
+	ImageURL    *string   `json:"image_url,omitempty" example:"https://your-s3-bucket.s3.amazonaws.com/course-images/go-programming.jpg"`
 	CreatedAt   time.Time `json:"created_at" example:"2023-01-01T00:00:00Z"`
 }
 
@@ -56,6 +59,7 @@ func (c *Course) ToResponse() CourseResponse {
 		Title:       c.Title,
 		Description: c.Description,
 		Difficulty:  c.Difficulty,
+		ImageURL:    c.ImageURL,
 		CreatedAt:   c.CreatedAt,
 	}
 }
