@@ -16,16 +16,16 @@ const (
 	MsgConflict            = "Conflict"
 
 	// Authentication Messages
-	MsgInvalidCredentials     = "Invalid username or password"
-	MsgAuthHeaderRequired     = "Authorization header is required"
-	MsgInvalidTokenFormat     = "Invalid token format"
-	MsgJWTTokenInvalid        = "JWT token is invalid or expired"
-	MsgAdminAccessRequired    = "Admin access required"
+	MsgInvalidCredentials  = "Invalid username or password"
+	MsgAuthHeaderRequired  = "Authorization header is required"
+	MsgInvalidTokenFormat  = "Invalid token format"
+	MsgJWTTokenInvalid     = "JWT token is invalid or expired"
+	MsgAdminAccessRequired = "Admin access required"
 
 	// Course Messages
-	MsgCourseNotFound         = "The requested course does not exist"
-	MsgCourseCreated          = "Course created successfully"
-	MsgInvalidCourseIDFormat  = "Invalid course ID format"
+	MsgCourseNotFound        = "The requested course does not exist"
+	MsgCourseCreated         = "Course created successfully"
+	MsgInvalidCourseIDFormat = "Invalid course ID format"
 
 	// Enrollment Messages
 	MsgEnrollmentCreated      = "Student enrolled successfully"
@@ -46,6 +46,14 @@ const (
 const (
 	JWTTokenExpiry = 24 * time.Hour
 	JWTIssuer      = "sonic-labs-course-enrollment"
+)
+
+// Cache Constants
+const (
+	CacheTTL          = 15 * time.Minute
+	SessionTTL        = 24 * time.Hour
+	RateLimitWindow   = 1 * time.Minute
+	RateLimitRequests = 60
 )
 
 // User Roles
@@ -82,16 +90,16 @@ const (
 // API Paths
 const (
 	APIBasePath = "/api/v1"
-	
+
 	// Auth paths
 	AuthBasePath = APIBasePath + "/auth"
 	AuthLogin    = "/login"
 	AuthProfile  = "/profile"
-	
+
 	// Course paths
 	CoursesBasePath = APIBasePath + "/courses"
 	CourseByID      = "/:id"
-	
+
 	// Enrollment paths
 	EnrollmentsBasePath = APIBasePath + "/enrollments"
 	StudentEnrollments  = APIBasePath + "/students/:email/enrollments"

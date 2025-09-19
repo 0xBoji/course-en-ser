@@ -20,13 +20,15 @@ type CourseService interface {
 
 // courseService implements CourseService interface
 type courseService struct {
-	courseRepo repository.CourseRepository
+	courseRepo   repository.CourseRepository
+	redisService *RedisService
 }
 
 // NewCourseService creates a new course service
-func NewCourseService(courseRepo repository.CourseRepository) CourseService {
+func NewCourseService(courseRepo repository.CourseRepository, redisService *RedisService) CourseService {
 	return &courseService{
-		courseRepo: courseRepo,
+		courseRepo:   courseRepo,
+		redisService: redisService,
 	}
 }
 
@@ -43,26 +45,63 @@ func (s *courseService) CreateCourse(req models.CourseRequest) (*models.CourseRe
 	}
 
 	response := course.ToResponse()
+
+	// Invalidate courses cache since we added a new course
+	if s.redisService != nil {
+		s.redisService.InvalidateCoursesCache()
+	}
+
 	return &response, nil
 }
 
-// GetAllCourses retrieves all courses
+// GetAllCourses retrieves all courses with caching
 func (s *courseService) GetAllCourses() ([]models.CourseResponse, error) {
+	// Try to get from cache first
+	if s.redisService != nil {
+		cachedCourses, err := s.redisService.GetCourses()
+		if err == nil && cachedCourses != nil {
+			// Convert to slice of values instead of pointers
+			responses := make([]models.CourseResponse, len(cachedCourses))
+			for i, course := range cachedCourses {
+				responses[i] = *course
+			}
+			return responses, nil
+		}
+	}
+
+	// Cache miss or Redis unavailable, get from database
 	courses, err := s.courseRepo.GetAll()
 	if err != nil {
 		return nil, err
 	}
 
 	responses := make([]models.CourseResponse, len(courses))
+	cacheResponses := make([]*models.CourseResponse, len(courses))
 	for i, course := range courses {
-		responses[i] = course.ToResponse()
+		response := course.ToResponse()
+		responses[i] = response
+		cacheResponses[i] = &response
+	}
+
+	// Cache the results
+	if s.redisService != nil {
+		s.redisService.SetCourses(cacheResponses)
 	}
 
 	return responses, nil
 }
 
-// GetCourseByID retrieves a course by ID
+// GetCourseByID retrieves a course by ID with caching
 func (s *courseService) GetCourseByID(id uuid.UUID) (*models.CourseResponse, error) {
+	// Try to get from cache first
+	if s.redisService != nil {
+		cachedCourse, err := s.redisService.GetCourse(id.String())
+		if err == nil && cachedCourse != nil {
+			return cachedCourse, nil
+		}
+	}
+
+	// Cache miss or Redis unavailable, get from database
 	course, err := s.courseRepo.GetByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -72,6 +111,12 @@ func (s *courseService) GetCourseByID(id uuid.UUID) (*models.CourseResponse, err
 	}
 
 	response := course.ToResponse()
+
+	// Cache the result
+	if s.redisService != nil {
+		s.redisService.SetCourse(&response)
+	}
+
 	return &response, nil
 }
 

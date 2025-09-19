@@ -22,6 +22,23 @@ services:
     networks:
       - course-enrollment-network
 
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: course-enrollment-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - course-enrollment-network
+    restart: unless-stopped
+
   # Course Enrollment Service
   app:
     build:
@@ -36,10 +53,16 @@ services:
       DB_PASSWORD: password
       DB_NAME: course_enrollment
       DB_SSLMODE: disable
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
     ports:
       - "8080:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
@@ -53,6 +76,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   course-enrollment-network:

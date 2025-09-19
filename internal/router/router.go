@@ -36,20 +36,74 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	enrollmentRepo := repository.NewEnrollmentRepository(db)
 	userRepo := repository.NewUserRepository(db)
 
+	// Initialize Redis service
+	redisService := service.NewRedisService(cfg)
+
+	// Test Redis connection
+	if err := redisService.Ping(); err != nil {
+		log.Printf("Warning: Redis connection failed: %v", err)
+		redisService = nil // Disable Redis if connection fails
+	} else {
+		log.Println("Redis connected successfully")
+	}
+
 	// Initialize services
-	courseService := service.NewCourseService(courseRepo)
+	courseService := service.NewCourseService(courseRepo, redisService)
 	enrollmentService := service.NewEnrollmentService(enrollmentRepo, courseRepo)
 	authService := service.NewAuthService(userRepo)
 
+	// Initialize S3 service
+	s3Service := service.NewS3Service()
+
 	// Initialize handlers
-	courseHandler := handler.NewCourseHandler(courseService)
+	courseHandler := handler.NewCourseHandler(courseService, s3Service)
 	enrollmentHandler := handler.NewEnrollmentHandler(enrollmentService)
 	authHandler := handler.NewAuthHandler(authService)
 	// Health check endpoint
 	r.GET("/health", func(c *gin.Context) {
+		health := gin.H{
+			"status":   "healthy",
+			"service":  "course-enrollment-service",
+			"database": "connected",
+		}
+
+		// Check Redis status
+		if redisService != nil {
+			if err := redisService.Ping(); err != nil {
+				health["redis"] = "disconnected"
+				health["redis_error"] = err.Error()
+			} else {
+				health["redis"] = "connected"
+			}
+		} else {
+			health["redis"] = "disabled"
+		}
+
+		c.JSON(200, health)
+	})
+
+	// Redis stats endpoint
+	r.GET("/redis/stats", func(c *gin.Context) {
+		if redisService == nil {
+			c.JSON(503, gin.H{
+				"error":   "Redis unavailable",
+				"message": "Redis service is not available",
+			})
+			return
+		}
+
+		stats, err := redisService.GetStats()
+		if err != nil {
+			c.JSON(500, gin.H{
+				"error":   "Failed to get Redis stats",
+				"message": err.Error(),
+			})
+			return
+		}
+
 		c.JSON(200, gin.H{
-			"status":  "healthy",
-			"service": "course-enrollment-service",
+			"status": "success",
+			"data":   stats,
 		})
 	})
 
@@ -59,20 +113,32 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		// Authentication routes
 		auth := v1.Group("/auth")
 		{
-			auth.POST("/login", authHandler.Login)                                                           // Public - login only
+			auth.POST("/login", authHandler.Login)                                                                  // Public - login only
 			auth.GET("/profile", middleware.AuthMiddleware(), middleware.AdminMiddleware(), authHandler.GetProfile) // Protected - admin only
+		}
+
+		// Public course routes (read-only)
+		publicCourses := v1.Group("/courses")
+		{
+			publicCourses.GET("", courseHandler.GetAllCourses)     // Public - read all courses
+			publicCourses.GET("/:id", courseHandler.GetCourseByID) // Public - read specific course
+		}
+
+		// Public enrollment routes (read-only)
+		publicStudents := v1.Group("/students")
+		{
+			publicStudents.GET("/:email/enrollments", enrollmentHandler.GetStudentEnrollments) // Public - read student enrollments
 		}
 
 		// All other routes require admin authentication
 		adminRoutes := v1.Group("")
 		adminRoutes.Use(middleware.AdminAuthMiddleware())
 		{
-			// Course routes - admin only
+			// Course management routes - admin only (write operations)
 			courses := adminRoutes.Group("/courses")
 			{
-				courses.GET("", courseHandler.GetAllCourses)        // Admin only - read courses
-				courses.POST("", courseHandler.CreateCourse)        // Admin only - create course
-				courses.GET("/:id", courseHandler.GetCourseByID)    // Admin only - read specific course
+				courses.POST("", courseHandler.CreateCourse)                 // Admin only - create course JSON (default)
+				courses.POST("/upload", courseHandler.CreateCourseWithImage) // Admin only - create course with image upload
 			}
 
 			// Enrollment routes - admin only
@@ -81,11 +147,8 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 				enrollments.POST("", enrollmentHandler.EnrollStudent) // Admin only - enroll student
 			}
 
-			// Student routes - admin only
-			students := adminRoutes.Group("/students")
-			{
-				students.GET("/:email/enrollments", enrollmentHandler.GetStudentEnrollments) // Admin only - read enrollments
-			}
+			// Student management routes - admin only (write operations only, reads are public)
+			// Note: Student enrollment reading is available publicly above
 		}
 	}
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

@@ -13,18 +13,112 @@ import (
 // CourseHandler handles course-related HTTP requests
 type CourseHandler struct {
 	courseService service.CourseService
+	s3Service     *service.S3Service
 }
 
 // NewCourseHandler creates a new course handler
-func NewCourseHandler(courseService service.CourseService) *CourseHandler {
+func NewCourseHandler(courseService service.CourseService, s3Service *service.S3Service) *CourseHandler {
 	return &CourseHandler{
 		courseService: courseService,
+		s3Service:     s3Service,
 	}
 }
 
-// CreateCourse creates a new course
-// @Summary Create a new course
-// @Description Create a new course with title, description, and difficulty level
+// CreateCourseWithImage creates a new course with image upload
+// @Summary Create a new course with image upload
+// @Description Create a new course with title, description, difficulty level, and optional image file
+// @Tags courses
+// @Accept multipart/form-data
+// @Produce json
+// @Param title formData string true "Course title"
+// @Param description formData string true "Course description"
+// @Param difficulty formData string true "Course difficulty (Beginner, Intermediate, Advanced)"
+// @Param image formData file false "Course image file (JPG, PNG, GIF, WebP, max 5MB)"
+// @Success 201 {object} models.CourseResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /courses [post]
+func (h *CourseHandler) CreateCourseWithImage(c *gin.Context) {
+	// Get form data
+	title := c.PostForm("title")
+	description := c.PostForm("description")
+	difficulty := c.PostForm("difficulty")
+
+	// Validate required fields
+	if title == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Message: "Title is required",
+		})
+		return
+	}
+
+	if description == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Message: "Description is required",
+		})
+		return
+	}
+
+	// Validate difficulty
+	validDifficulties := map[string]bool{
+		"Beginner":     true,
+		"Intermediate": true,
+		"Advanced":     true,
+	}
+	if !validDifficulties[difficulty] {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Message: "Difficulty must be one of: Beginner, Intermediate, Advanced",
+		})
+		return
+	}
+
+	// Handle image upload (optional)
+	var imageURL *string
+	file, err := c.FormFile("image")
+	if err == nil && file != nil {
+		// Upload image to S3
+		uploadedURL, uploadErr := h.s3Service.UploadCourseImage(file)
+		if uploadErr != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error:   "Image upload failed",
+				Message: uploadErr.Error(),
+			})
+			return
+		}
+		imageURL = &uploadedURL
+	}
+
+	// Create course request
+	req := models.CourseRequest{
+		Title:       title,
+		Description: description,
+		Difficulty:  difficulty,
+		ImageURL:    imageURL,
+	}
+
+	course, err := h.courseService.CreateCourse(req)
+	if err != nil {
+		// If course creation fails and we uploaded an image, clean it up
+		if imageURL != nil {
+			h.s3Service.DeleteCourseImage(*imageURL)
+		}
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to create course",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, course)
+}
+
+// CreateCourse creates a new course (JSON endpoint for backward compatibility)
+// @Summary Create a new course (JSON)
+// @Description Create a new course with title, description, and difficulty level using JSON
 // @Tags courses
 // @Accept json
 // @Produce json
@@ -32,7 +126,8 @@ func NewCourseHandler(courseService service.CourseService) *CourseHandler {
 // @Success 201 {object} models.CourseResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /courses [post]
+// @Security BearerAuth
+// @Router /courses/json [post]
 func (h *CourseHandler) CreateCourse(c *gin.Context) {
 	var req models.CourseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

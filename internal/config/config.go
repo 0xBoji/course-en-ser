@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Port      string         `mapstructure:"PORT"`
 	Database  DatabaseConfig `mapstructure:"database"`
+	Redis     RedisConfig    `mapstructure:"redis"`
 	JWTSecret string         `mapstructure:"JWT_SECRET"`
 }
 
@@ -24,6 +25,14 @@ type DatabaseConfig struct {
 	SSLMode  string `mapstructure:"sslmode"`
 }
 
+// RedisConfig holds Redis configuration
+type RedisConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     string `mapstructure:"port"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
+}
+
 // Load loads configuration from environment variables
 func Load() *Config {
 	// Set defaults
@@ -34,6 +43,10 @@ func Load() *Config {
 	viper.SetDefault("database.password", "password")
 	viper.SetDefault("database.dbname", "course_enrollment")
 	viper.SetDefault("database.sslmode", "disable")
+	viper.SetDefault("redis.host", "localhost")
+	viper.SetDefault("redis.port", "6379")
+	viper.SetDefault("redis.password", "")
+	viper.SetDefault("redis.db", 0)
 	viper.SetDefault("JWT_SECRET", "your-default-jwt-secret-change-this")
 	viper.SetDefault("admin.username", "admin")
 	viper.SetDefault("admin.password", "admin!dev")

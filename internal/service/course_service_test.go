@@ -47,7 +47,7 @@ func (m *MockCourseRepository) Delete(id uuid.UUID) error {
 
 func TestCourseService_CreateCourse(t *testing.T) {
 	mockRepo := new(MockCourseRepository)
-	service := NewCourseService(mockRepo)
+	service := NewCourseService(mockRepo, nil) // No Redis for unit tests
 
 	req := models.CourseRequest{
 		Title:       "Test Course",
@@ -69,7 +69,7 @@ func TestCourseService_CreateCourse(t *testing.T) {
 
 func TestCourseService_CreateCourse_Error(t *testing.T) {
 	mockRepo := new(MockCourseRepository)
-	service := NewCourseService(mockRepo)
+	service := NewCourseService(mockRepo, nil) // No Redis for unit tests
 
 	req := models.CourseRequest{
 		Title:       "Test Course",
@@ -89,7 +89,7 @@ func TestCourseService_CreateCourse_Error(t *testing.T) {
 
 func TestCourseService_GetAllCourses(t *testing.T) {
 	mockRepo := new(MockCourseRepository)
-	service := NewCourseService(mockRepo)
+	service := NewCourseService(mockRepo, nil) // No Redis for unit tests
 
 	courses := []models.Course{
 		{
@@ -119,7 +119,7 @@ func TestCourseService_GetAllCourses(t *testing.T) {
 
 func TestCourseService_GetCourseByID(t *testing.T) {
 	mockRepo := new(MockCourseRepository)
-	service := NewCourseService(mockRepo)
+	service := NewCourseService(mockRepo, nil) // No Redis for unit tests
 
 	courseID := uuid.New()
 	course := &models.Course{
@@ -142,7 +142,7 @@ func TestCourseService_GetCourseByID(t *testing.T) {
 
 func TestCourseService_GetCourseByID_NotFound(t *testing.T) {
 	mockRepo := new(MockCourseRepository)
-	service := NewCourseService(mockRepo)
+	service := NewCourseService(mockRepo, nil) // No Redis for unit tests
 
 	courseID := uuid.New()
 
