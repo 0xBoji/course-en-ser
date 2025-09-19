@@ -6,6 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+# Security: Concurrency control to cancel old workflows
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+# Security: Least privilege permissions
+permissions:
+  contents: read
+  actions: read
+  security-events: write
+
 env:
   GO_VERSION: '1.24'
   APP_NAME: course-enrollment
@@ -14,6 +25,7 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     services:
       postgres:
@@ -76,6 +88,7 @@ jobs:
   build:
     name: Build Application
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: test
     if: github.ref == 'refs/heads/main'
     
@@ -111,6 +124,7 @@ jobs:
   deploy:
     name: Deploy to EC2
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [test, build]
     if: github.ref == 'refs/heads/main'
     environment: production
@@ -149,17 +163,39 @@ jobs:
             sudo mkdir -p /opt/${{ env.APP_NAME }}
             sudo chown ec2-user:ec2-user /opt/${{ env.APP_NAME }}
 
-            # Create environment file
+            # Create environment file with all required secrets
             cat > /opt/${{ env.APP_NAME }}/.env << EOF
+            # Server Configuration
+            PORT=8080
+            APP_ENV=production
+
+            # Database Configuration
             DB_HOST=${{ secrets.DB_HOST }}
             DB_PORT=${{ secrets.DB_PORT }}
             DB_USER=${{ secrets.DB_USER }}
             DB_PASSWORD=${{ secrets.DB_PASSWORD }}
             DB_NAME=${{ secrets.DB_NAME }}
-            DB_SSLMODE=require
+            DB_SSLMODE=${{ secrets.DB_SSLMODE }}
+
+            # JWT Configuration
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+
+            # Redis Configuration
+            REDIS_HOST=redis
+            REDIS_PORT=${{ secrets.REDIS_PORT }}
+            REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
+            REDIS_DB=${{ secrets.REDIS_DB }}
+
+            # S3 Configuration
+            S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME }}
+            S3_REGION=${{ secrets.S3_REGION }}
+            S3_BASE_URL=${{ secrets.S3_BASE_URL }}
+            S3_COURSE_IMAGES_FOLDER=${{ secrets.S3_COURSE_IMAGES_FOLDER }}
+
+            # AWS Configuration
+            AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+            AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
             AWS_REGION=${{ secrets.AWS_REGION }}
-            PORT=8080
-            APP_ENV=production
             EOF
           "
       
@@ -167,14 +203,34 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
             cd /opt/${{ env.APP_NAME }}
-            
+
+            # Stop current services
             sudo systemctl stop ${{ env.APP_NAME }} || true
             docker-compose down || true
-            
+
+            # Clean up old images and containers to free space
+            echo '🧹 Cleaning up old Docker resources...'
+            docker container prune -f
+            docker image prune -f
+            docker volume prune -f
+            docker network prune -f
+
+            # Remove old app images specifically (keep only latest)
+            docker images ${{ env.APP_NAME }} --format 'table {{.Repository}}\t{{.Tag}}\t{{.ID}}' | grep -v latest | awk '{print \$3}' | xargs -r docker rmi -f || true
+
+            # Build new image
+            echo '🔨 Building new image...'
             docker build -t ${{ env.APP_NAME }}:latest .
+
+            # Start services
+            echo '🚀 Starting services...'
             docker-compose up -d
             sudo systemctl start ${{ env.APP_NAME }}
-            
+
+            # Final cleanup of dangling images
+            docker image prune -f
+
+            echo '✅ Deployment completed with cleanup!'
             sleep 10
           "
       
