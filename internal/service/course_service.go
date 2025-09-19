@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"sonic-labs/course-enrollment-service/internal/constants"
 	"sonic-labs/course-enrollment-service/internal/models"
 	"sonic-labs/course-enrollment-service/internal/repository"
 
@@ -13,6 +14,7 @@ import (
 type CourseService interface {
 	CreateCourse(req models.CourseRequest) (*models.CourseResponse, error)
 	GetAllCourses() ([]models.CourseResponse, error)
+	GetCoursesWithPagination(params models.CourseQueryParams) (*models.CourseListResponse, error)
 	GetCourseByID(id uuid.UUID) (*models.CourseResponse, error)
 	UpdateCourse(id uuid.UUID, req models.CourseRequest) (*models.CourseResponse, error)
 	DeleteCourse(id uuid.UUID) error
@@ -89,6 +91,51 @@ func (s *courseService) GetAllCourses() ([]models.CourseResponse, error) {
 	}
 
 	return responses, nil
+}
+
+// GetCoursesWithPagination retrieves courses with pagination, search, and filtering
+func (s *courseService) GetCoursesWithPagination(params models.CourseQueryParams) (*models.CourseListResponse, error) {
+	// Set default values
+	if params.Page <= 0 {
+		params.Page = 1
+	}
+	if params.Limit <= 0 {
+		params.Limit = constants.DefaultPageSize
+	}
+	if params.Limit > constants.MaxPageSize {
+		params.Limit = constants.MaxPageSize // Max limit to prevent abuse
+	}
+
+	// Get courses from repository
+	courses, totalCount, err := s.courseRepo.GetWithPagination(params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to response format
+	responses := make([]models.CourseResponse, len(courses))
+	for i, course := range courses {
+		responses[i] = course.ToResponse()
+	}
+
+	// Calculate pagination metadata
+	totalPages := (totalCount + params.Limit - 1) / params.Limit
+	hasNext := params.Page < totalPages
+	hasPrev := params.Page > 1
+
+	pagination := models.PaginationMeta{
+		CurrentPage: params.Page,
+		TotalPages:  totalPages,
+		TotalCount:  totalCount,
+		HasNext:     hasNext,
+		HasPrev:     hasPrev,
+		Limit:       params.Limit,
+	}
+
+	return &models.CourseListResponse{
+		Data:       responses,
+		Pagination: pagination,
+	}, nil
 }
 
 // GetCourseByID retrieves a course by ID with caching

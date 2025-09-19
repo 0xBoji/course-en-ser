@@ -132,6 +132,78 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          echo "🔍 Validating required secrets..."
+
+          # Database secrets
+          if [ -z "${{ secrets.DB_HOST }}" ]; then
+            echo "❌ DB_HOST secret is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DB_PASSWORD }}" ]; then
+            echo "❌ DB_PASSWORD secret is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DB_USER }}" ]; then
+            echo "❌ DB_USER secret is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.DB_NAME }}" ]; then
+            echo "❌ DB_NAME secret is missing!"
+            exit 1
+          fi
+
+          # JWT secret
+          if [ -z "${{ secrets.JWT_SECRET }}" ]; then
+            echo "❌ JWT_SECRET secret is missing!"
+            exit 1
+          fi
+
+          # Redis secrets
+          if [ -z "${{ secrets.REDIS_PORT }}" ]; then
+            echo "❌ REDIS_PORT secret is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.REDIS_DB }}" ]; then
+            echo "❌ REDIS_DB secret is missing!"
+            exit 1
+          fi
+
+          # S3 secrets
+          if [ -z "${{ secrets.S3_BUCKET_NAME }}" ]; then
+            echo "❌ S3_BUCKET_NAME secret is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            echo "❌ AWS_ACCESS_KEY_ID secret is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "❌ AWS_SECRET_ACCESS_KEY secret is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.S3_REGION }}" ]; then
+            echo "❌ S3_REGION secret is missing!"
+            exit 1
+          fi
+
+          # EC2 secrets
+          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "❌ EC2_SSH_KEY secret is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            echo "❌ EC2_HOST secret is missing!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.EC2_USER }}" ]; then
+            echo "❌ EC2_USER secret is missing!"
+            exit 1
+          fi
+
+          echo "✅ All required secrets are present!"
       
       - name: Download binary artifact
         uses: actions/download-artifact@v4

@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"sonic-labs/course-enrollment-service/internal/models"
 	"sonic-labs/course-enrollment-service/internal/service"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -189,25 +191,79 @@ func (h *CourseHandler) CreateCourse(c *gin.Context) {
 	c.JSON(http.StatusCreated, course)
 }
 
-// GetAllCourses retrieves all courses
-// @Summary Get all courses
-// @Description Retrieve a list of all available courses
+// GetAllCourses retrieves all courses with pagination and search
+// @Summary Get all courses with pagination and search
+// @Description Retrieve a list of courses with optional pagination, search, and filtering
 // @Tags courses
 // @Produce json
-// @Success 200 {array} models.CourseResponse
+// @Param page query int false "Page number (default: 1)" example(1)
+// @Param limit query int false "Items per page (default: 10, max: 100)" example(10)
+// @Param search query string false "Search in title and description" example("golang")
+// @Param difficulty query []string false "Filter by difficulty levels" example("Beginner,Intermediate")
+// @Success 200 {object} models.CourseListResponse
+// @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /courses [get]
 func (h *CourseHandler) GetAllCourses(c *gin.Context) {
-	courses, err := h.courseService.GetAllCourses()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error:   "Failed to retrieve courses",
-			Message: err.Error(),
-		})
-		return
+	// Parse query parameters
+	var params models.CourseQueryParams
+
+	// Parse page
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
+			params.Page = page
+		}
 	}
 
-	c.JSON(http.StatusOK, courses)
+	// Parse limit
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
+			params.Limit = limit
+		}
+	}
+
+	// Parse search
+	params.Search = strings.TrimSpace(c.Query("search"))
+
+	// Parse difficulty filter
+	if difficultyStr := c.Query("difficulty"); difficultyStr != "" {
+		difficulties := strings.Split(difficultyStr, ",")
+		validDifficulties := []string{}
+		for _, d := range difficulties {
+			d = strings.TrimSpace(d)
+			if d == "Beginner" || d == "Intermediate" || d == "Advanced" {
+				validDifficulties = append(validDifficulties, d)
+			}
+		}
+		params.Difficulty = validDifficulties
+	}
+
+	// Check if any pagination/search parameters are provided
+	hasPaginationParams := params.Page > 0 || params.Limit > 0 || params.Search != "" || len(params.Difficulty) > 0
+
+	if hasPaginationParams {
+		// Use new pagination endpoint
+		result, err := h.courseService.GetCoursesWithPagination(params)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{
+				Error:   "Failed to retrieve courses",
+				Message: err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, result)
+	} else {
+		// Backward compatibility: return simple array for existing clients
+		courses, err := h.courseService.GetAllCourses()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{
+				Error:   "Failed to retrieve courses",
+				Message: err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, courses)
+	}
 }
 
 // GetCourseByID retrieves a course by ID

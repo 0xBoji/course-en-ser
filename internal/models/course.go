@@ -52,6 +52,30 @@ type CourseResponse struct {
 	CreatedAt   time.Time `json:"created_at" example:"2023-01-01T00:00:00Z"`
 }
 
+// CourseQueryParams represents query parameters for course listing
+type CourseQueryParams struct {
+	Page       int      `form:"page" json:"page" example:"1"`
+	Limit      int      `form:"limit" json:"limit" example:"10"`
+	Search     string   `form:"search" json:"search" example:"golang"`
+	Difficulty []string `form:"difficulty" json:"difficulty" example:"Beginner,Intermediate"`
+}
+
+// PaginationMeta represents pagination metadata
+type PaginationMeta struct {
+	CurrentPage int  `json:"current_page" example:"1"`
+	TotalPages  int  `json:"total_pages" example:"5"`
+	TotalCount  int  `json:"total_count" example:"50"`
+	HasNext     bool `json:"has_next" example:"true"`
+	HasPrev     bool `json:"has_prev" example:"false"`
+	Limit       int  `json:"limit" example:"10"`
+}
+
+// CourseListResponse represents paginated course list response
+type CourseListResponse struct {
+	Data       []CourseResponse `json:"data"`
+	Pagination PaginationMeta   `json:"pagination"`
+}
+
 // ToResponse converts Course model to CourseResponse
 func (c *Course) ToResponse() CourseResponse {
 	return CourseResponse{

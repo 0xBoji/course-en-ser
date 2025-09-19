@@ -27,6 +27,11 @@ func (m *MockCourseRepository) GetAll() ([]models.Course, error) {
 	return args.Get(0).([]models.Course), args.Error(1)
 }
 
+func (m *MockCourseRepository) GetWithPagination(params models.CourseQueryParams) ([]models.Course, int, error) {
+	args := m.Called(params)
+	return args.Get(0).([]models.Course), args.Int(1), args.Error(2)
+}
+
 func (m *MockCourseRepository) GetByID(id uuid.UUID) (*models.Course, error) {
 	args := m.Called(id)
 	if args.Get(0) == nil {
@@ -114,6 +119,77 @@ func TestCourseService_GetAllCourses(t *testing.T) {
 	assert.Len(t, result, 2)
 	assert.Equal(t, courses[0].Title, result[0].Title)
 	assert.Equal(t, courses[1].Title, result[1].Title)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestCourseService_GetCoursesWithPagination(t *testing.T) {
+	mockRepo := new(MockCourseRepository)
+	service := NewCourseService(mockRepo, nil) // No Redis for unit tests
+
+	courses := []models.Course{
+		{
+			ID:          uuid.New(),
+			Title:       "Go Programming",
+			Description: "Learn Go programming",
+			Difficulty:  "Beginner",
+		},
+		{
+			ID:          uuid.New(),
+			Title:       "Advanced Go",
+			Description: "Advanced Go concepts",
+			Difficulty:  "Advanced",
+		},
+	}
+
+	params := models.CourseQueryParams{
+		Page:       1,
+		Limit:      10,
+		Search:     "Go",
+		Difficulty: []string{"Beginner", "Advanced"},
+	}
+
+	mockRepo.On("GetWithPagination", params).Return(courses, 2, nil)
+
+	result, err := service.GetCoursesWithPagination(params)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Len(t, result.Data, 2)
+	assert.Equal(t, 2, result.Pagination.TotalCount)
+	assert.Equal(t, 1, result.Pagination.CurrentPage)
+	assert.Equal(t, 1, result.Pagination.TotalPages)
+	assert.False(t, result.Pagination.HasNext)
+	assert.False(t, result.Pagination.HasPrev)
+	mockRepo.AssertExpectations(t)
+}
+
+func TestCourseService_GetCoursesWithPagination_DefaultValues(t *testing.T) {
+	mockRepo := new(MockCourseRepository)
+	service := NewCourseService(mockRepo, nil)
+
+	courses := []models.Course{}
+
+	// Test with invalid/empty parameters
+	params := models.CourseQueryParams{
+		Page:  0, // Should default to 1
+		Limit: 0, // Should default to 10
+	}
+
+	expectedParams := models.CourseQueryParams{
+		Page:       1,
+		Limit:      10,
+		Search:     "",
+		Difficulty: nil,
+	}
+
+	mockRepo.On("GetWithPagination", expectedParams).Return(courses, 0, nil)
+
+	result, err := service.GetCoursesWithPagination(params)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Len(t, result.Data, 0)
+	assert.Equal(t, 0, result.Pagination.TotalCount)
 	mockRepo.AssertExpectations(t)
 }
 

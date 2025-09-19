@@ -76,6 +76,13 @@ const (
 	DifficultyAdvanced     = "Advanced"
 )
 
+// Pagination settings
+const (
+	DefaultPageSize = 10
+	MaxPageSize     = 100
+	MinPageSize     = 1
+)
+
 // HTTP Headers
 const (
 	HeaderAuthorization = "Authorization"
