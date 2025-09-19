@@ -38,6 +38,10 @@ WORKDIR /root/
 # Copy the binary from builder stage
 COPY --from=builder /app/server .
 
+# Copy migrations and docs
+COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/docs ./docs
+
 # Create config and logs directories
 RUN mkdir -p ./config ./logs
 
