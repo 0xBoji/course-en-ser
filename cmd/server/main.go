@@ -1,7 +1,10 @@
 package main
 
 import (
+	"io"
 	"log"
+	"os"
+	"path/filepath"
 	"sonic-labs/course-enrollment-service/internal/config"
 	"sonic-labs/course-enrollment-service/internal/database"
 	"sonic-labs/course-enrollment-service/internal/router"
@@ -23,7 +26,35 @@ import (
 
 // @host localhost:8080
 // @BasePath /api/v1
+
+func setupLogging() {
+	// Create logs directory
+	logsDir := "/app/logs"
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		log.Printf("Failed to create logs directory: %v", err)
+		return
+	}
+
+	// Create log file
+	logFile := filepath.Join(logsDir, "app.log")
+	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Printf("Failed to open log file: %v", err)
+		return
+	}
+
+	// Set log output to both file and stdout
+	multiWriter := io.MultiWriter(os.Stdout, file)
+	log.SetOutput(multiWriter)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	log.Println("Logging setup completed - writing to file and stdout")
+}
+
 func main() {
+	// Setup logging to file
+	setupLogging()
+
 	// Load configuration
 	cfg := config.Load()
 

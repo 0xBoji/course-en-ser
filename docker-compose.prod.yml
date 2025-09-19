@@ -26,6 +26,9 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
+
+    volumes:
+      - /opt/course-enrollment/logs:/app/logs
     
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
