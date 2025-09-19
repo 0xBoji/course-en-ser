@@ -21,9 +21,15 @@ type RedisService struct {
 
 // NewRedisService creates a new Redis service
 func NewRedisService(cfg *config.Config) *RedisService {
+	password := cfg.Redis.Password
+	// Handle empty password cases
+	if password == "none" || password == "empty" || password == "__EMPTY__" || password == "" {
+		password = ""
+	}
+
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
-		Password: cfg.Redis.Password,
+		Password: password,
 		DB:       cfg.Redis.DB,
 	})
 
@@ -148,7 +154,7 @@ func (r *RedisService) DeleteSession(sessionID string) error {
 // CheckRateLimit checks if a user has exceeded rate limit
 func (r *RedisService) CheckRateLimit(userID string, limit int, window time.Duration) (bool, error) {
 	key := fmt.Sprintf("rate_limit:%s", userID)
-	
+
 	// Get current count
 	count, err := r.client.Get(r.ctx, key).Int()
 	if err != nil && err != redis.Nil {
@@ -164,7 +170,7 @@ func (r *RedisService) CheckRateLimit(userID string, limit int, window time.Dura
 	pipe.Incr(r.ctx, key)
 	pipe.Expire(r.ctx, key, window)
 	_, err = pipe.Exec(r.ctx)
-	
+
 	return err == nil, err
 }
 
@@ -207,10 +213,10 @@ func (r *RedisService) GetStats() (map[string]interface{}, error) {
 	}
 
 	stats := map[string]interface{}{
-		"info":       info,
-		"db_size":    r.client.DBSize(r.ctx).Val(),
-		"ping":       r.client.Ping(r.ctx).Val(),
-		"connected":  true,
+		"info":      info,
+		"db_size":   r.client.DBSize(r.ctx).Val(),
+		"ping":      r.client.Ping(r.ctx).Val(),
+		"connected": true,
 	}
 
 	return stats, nil
