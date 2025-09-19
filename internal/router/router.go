@@ -1,6 +1,7 @@
 package router
 
 import (
+	"log"
 	"sonic-labs/course-enrollment-service/internal/config"
 	"sonic-labs/course-enrollment-service/internal/handler"
 	"sonic-labs/course-enrollment-service/internal/repository"
@@ -17,9 +18,17 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 	r := gin.New()
 
-	r.Use(gin.Logger())
+	// Custom logging middleware to ensure logs go to our log file
+	r.Use(gin.LoggerWithWriter(gin.DefaultWriter))
 	r.Use(gin.Recovery())
 	r.Use(corsMiddleware())
+
+	// Add custom request logging
+	r.Use(func(c *gin.Context) {
+		log.Printf("API Request: %s %s from %s", c.Request.Method, c.Request.URL.Path, c.ClientIP())
+		c.Next()
+		log.Printf("API Response: %s %s -> %d", c.Request.Method, c.Request.URL.Path, c.Writer.Status())
+	})
 
 	courseRepo := repository.NewCourseRepository(db)
 	enrollmentRepo := repository.NewEnrollmentRepository(db)

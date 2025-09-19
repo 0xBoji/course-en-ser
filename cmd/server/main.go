@@ -31,7 +31,9 @@ func setupLogging() {
 	// Create logs directory
 	logsDir := "/app/logs"
 	if err := os.MkdirAll(logsDir, 0755); err != nil {
-		log.Printf("Failed to create logs directory: %v", err)
+		log.Printf("Failed to create logs directory: %v, continuing with stdout only", err)
+		log.SetFlags(log.LstdFlags | log.Lshortfile)
+		log.Println("Logging setup completed - stdout only due to permission issue")
 		return
 	}
 
@@ -39,7 +41,9 @@ func setupLogging() {
 	logFile := filepath.Join(logsDir, "app.log")
 	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-		log.Printf("Failed to open log file: %v", err)
+		log.Printf("Failed to open log file: %v, continuing with stdout only", err)
+		log.SetFlags(log.LstdFlags | log.Lshortfile)
+		log.Println("Logging setup completed - stdout only due to file permission issue")
 		return
 	}
 
