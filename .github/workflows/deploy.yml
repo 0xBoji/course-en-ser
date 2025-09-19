@@ -62,7 +62,7 @@ jobs:
           go tool cover -html=coverage.out -o coverage.html
       
       - name: Upload coverage reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.html
@@ -88,7 +88,7 @@ jobs:
           chmod +x bin/${{ env.APP_NAME }}
       
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: app-binary
           path: bin/${{ env.APP_NAME }}
@@ -105,7 +105,7 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Download binary artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: app-binary
           path: bin/
