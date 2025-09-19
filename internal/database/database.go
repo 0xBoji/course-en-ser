@@ -56,7 +56,7 @@ func Migrate(db *gorm.DB) error {
 	// Read and execute migration files
 	migrationFiles := []string{
 		"001_create_courses_table.sql",
-		"002_create_enrollments_table.sql", 
+		"002_create_enrollments_table.sql",
 		"003_seed_demo_courses.sql",
 		"004_create_admin_user.sql",
 	}
@@ -64,7 +64,7 @@ func Migrate(db *gorm.DB) error {
 	for _, filename := range migrationFiles {
 		migrationPath := fmt.Sprintf("migrations/%s", filename)
 		log.Printf("Executing migration: %s", filename)
-		
+
 		// Read migration file
 		migrationSQL, err := os.ReadFile(migrationPath)
 		if err != nil {
@@ -76,7 +76,7 @@ func Migrate(db *gorm.DB) error {
 		if err != nil {
 			return fmt.Errorf("failed to execute migration %s: %w", filename, err)
 		}
-		
+
 		log.Printf("Successfully executed migration: %s", filename)
 	}
 

@@ -53,34 +53,39 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		})
 	})
 
-	// API v1 routes
+	// API v1 routes - all protected except login
 	v1 := r.Group("/api/v1")
 	{
-		// Authentication routes (public)
+		// Authentication routes
 		auth := v1.Group("/auth")
 		{
-			auth.POST("/login", authHandler.Login)
-			auth.GET("/profile", middleware.AuthMiddleware(), authHandler.GetProfile)
+			auth.POST("/login", authHandler.Login)                                                           // Public - login only
+			auth.GET("/profile", middleware.AuthMiddleware(), middleware.AdminMiddleware(), authHandler.GetProfile) // Protected - admin only
 		}
 
-		// Course routes
-		courses := v1.Group("/courses")
+		// All other routes require admin authentication
+		adminRoutes := v1.Group("")
+		adminRoutes.Use(middleware.AdminAuthMiddleware())
 		{
-			courses.GET("", courseHandler.GetAllCourses)                                                            // Public - read courses
-			courses.POST("", middleware.AuthMiddleware(), middleware.AdminMiddleware(), courseHandler.CreateCourse) // Protected - admin only
-			courses.GET("/:id", courseHandler.GetCourseByID)                                                        // Public - read specific course
-		}
+			// Course routes - admin only
+			courses := adminRoutes.Group("/courses")
+			{
+				courses.GET("", courseHandler.GetAllCourses)        // Admin only - read courses
+				courses.POST("", courseHandler.CreateCourse)        // Admin only - create course
+				courses.GET("/:id", courseHandler.GetCourseByID)    // Admin only - read specific course
+			}
 
-		// Enrollment routes
-		enrollments := v1.Group("/enrollments")
-		{
-			enrollments.POST("", middleware.AuthMiddleware(), middleware.AdminMiddleware(), enrollmentHandler.EnrollStudent) // Protected - admin only
-		}
+			// Enrollment routes - admin only
+			enrollments := adminRoutes.Group("/enrollments")
+			{
+				enrollments.POST("", enrollmentHandler.EnrollStudent) // Admin only - enroll student
+			}
 
-		// Student routes
-		students := v1.Group("/students")
-		{
-			students.GET("/:email/enrollments", enrollmentHandler.GetStudentEnrollments) // Public - read enrollments
+			// Student routes - admin only
+			students := adminRoutes.Group("/students")
+			{
+				students.GET("/:email/enrollments", enrollmentHandler.GetStudentEnrollments) // Admin only - read enrollments
+			}
 		}
 	}
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

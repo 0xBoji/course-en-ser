@@ -95,3 +95,67 @@ func AdminMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// AdminAuthMiddleware combines authentication and admin authorization
+func AdminAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// First, validate JWT token
+		authHeader := c.GetHeader(constants.HeaderAuthorization)
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, ErrorResponse{
+				Error:   "Authorization required",
+				Message: constants.MsgAuthHeaderRequired,
+			})
+			c.Abort()
+			return
+		}
+
+		// Check if the header starts with "Bearer "
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			c.JSON(http.StatusUnauthorized, ErrorResponse{
+				Error:   "Invalid authorization format",
+				Message: constants.MsgInvalidTokenFormat,
+			})
+			c.Abort()
+			return
+		}
+
+		// Extract the token
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, ErrorResponse{
+				Error:   "Token required",
+				Message: "JWT token is required",
+			})
+			c.Abort()
+			return
+		}
+
+		// Validate the token using auth package
+		claims, err := auth.ValidateToken(tokenString)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, ErrorResponse{
+				Error:   "Invalid token",
+				Message: constants.MsgJWTTokenInvalid,
+			})
+			c.Abort()
+			return
+		}
+
+		// Check if user is admin
+		if claims.Role != constants.RoleAdmin {
+			c.JSON(http.StatusForbidden, ErrorResponse{
+				Error:   "Insufficient permissions",
+				Message: constants.MsgAdminAccessRequired,
+			})
+			c.Abort()
+			return
+		}
+
+		// Store user information in context for use in handlers
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("role", claims.Role)
+		c.Next()
+	}
+}
