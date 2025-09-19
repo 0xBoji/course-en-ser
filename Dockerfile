@@ -38,8 +38,8 @@ WORKDIR /root/
 # Copy the binary from builder stage
 COPY --from=builder /app/server .
 
-# Copy configuration files
-COPY --from=builder /app/config/ ./config/
+# Create config directory (since we use environment variables)
+RUN mkdir -p ./config
 
 # Change ownership to non-root user
 RUN chown -R appuser:appgroup /root/
