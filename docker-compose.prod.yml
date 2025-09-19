@@ -1,31 +1,44 @@
 version: '3.8'
 
 services:
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: course-enrollment-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # Course Enrollment Service (Production with RDS)
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: course-enrollment-app
+    env_file:
+      - .env
     environment:
-      # Production RDS Configuration
-      PORT: 8080
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-      DB_SSLMODE: ${DB_SSLMODE:-require}
-      
-      # AWS Configuration
-      AWS_REGION: ${AWS_REGION:-ap-southeast-2}
-      
-      # Application Configuration
-      APP_ENV: ${APP_ENV:-production}
+      # Override Redis to use container
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
+
+      # Swagger Configuration
       SWAGGER_HOST: 13.236.2.172:8080
       
     ports:
       - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
     volumes:
@@ -71,6 +84,9 @@ services:
     restart: "no"
     profiles:
       - test
+
+volumes:
+  redis_data:
 
 networks:
   default:
