@@ -15,8 +15,8 @@ func (suite *IntegrationTestSuite) TestGetAllCourses() {
 	suite.createTestCourse("Course 1", "Description 1", "Beginner")
 	suite.createTestCourse("Course 2", "Description 2", "Intermediate")
 
-	// Make request
-	recorder := suite.makeRequest("GET", "/api/v1/courses", nil, nil)
+	// Make request with authentication
+	recorder := suite.makeRequest("GET", "/api/v1/courses", nil, suite.getAuthHeaders())
 
 	// Assert response
 	suite.Equal(http.StatusOK, recorder.Code)
@@ -43,7 +43,7 @@ func (suite *IntegrationTestSuite) TestGetAllCourses() {
 // TestGetAllCoursesEmpty tests GET /api/v1/courses with no courses
 func (suite *IntegrationTestSuite) TestGetAllCoursesEmpty() {
 	// Make request without creating any courses
-	recorder := suite.makeRequest("GET", "/api/v1/courses", nil, nil)
+	recorder := suite.makeRequest("GET", "/api/v1/courses", nil, suite.getAuthHeaders())
 
 	// Assert response
 	suite.Equal(http.StatusOK, recorder.Code)
@@ -159,7 +159,7 @@ func (suite *IntegrationTestSuite) TestGetCourseByID() {
 
 	// Make request
 	url := fmt.Sprintf("/api/v1/courses/%s", course.ID.String())
-	recorder := suite.makeRequest("GET", url, nil, nil)
+	recorder := suite.makeRequest("GET", url, nil, suite.getAuthHeaders())
 
 	// Assert response
 	suite.Equal(http.StatusOK, recorder.Code)
@@ -179,13 +179,13 @@ func (suite *IntegrationTestSuite) TestGetCourseByIDNotFound() {
 	nonExistentID := uuid.New()
 	url := fmt.Sprintf("/api/v1/courses/%s", nonExistentID.String())
 
-	recorder := suite.makeRequest("GET", url, nil, nil)
+	recorder := suite.makeRequest("GET", url, nil, suite.getAuthHeaders())
 	suite.assertErrorResponse(recorder, http.StatusNotFound, "The requested course does not exist")
 }
 
 // TestGetCourseByIDInvalidUUID tests GET /api/v1/courses/:id with invalid UUID
 func (suite *IntegrationTestSuite) TestGetCourseByIDInvalidUUID() {
 	url := "/api/v1/courses/invalid-uuid"
-	recorder := suite.makeRequest("GET", url, nil, nil)
+	recorder := suite.makeRequest("GET", url, nil, suite.getAuthHeaders())
 	suite.assertErrorResponse(recorder, http.StatusBadRequest, "")
 }

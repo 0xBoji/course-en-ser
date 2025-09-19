@@ -11,7 +11,6 @@ import (
 
 	"sonic-labs/course-enrollment-service/internal/auth"
 	"sonic-labs/course-enrollment-service/internal/config"
-	"sonic-labs/course-enrollment-service/internal/database"
 	"sonic-labs/course-enrollment-service/internal/models"
 	"sonic-labs/course-enrollment-service/internal/router"
 
@@ -98,10 +97,14 @@ func (suite *IntegrationTestSuite) SetupSuite() {
 		log.Fatalf("Failed to create users table: %v", err)
 	}
 
-	// Seed admin user
-	err = database.SeedAdminUser(suite.db)
+	// Create admin user for testing
+	// Password is hashed using bcrypt for 'admin!dev'
+	err = suite.db.Exec(`
+		INSERT OR IGNORE INTO users (id, username, password, role) 
+		VALUES ('12345678-1234-1234-1234-123456789012', 'admin', '$2a$10$V6C81VGFyKg/sRc1JOw8cOs7dV/3StzYs5NUZaYvDFcEEKW0Tlika', 'admin')
+	`).Error
 	if err != nil {
-		log.Fatalf("Failed to seed admin user: %v", err)
+		log.Fatalf("Failed to create admin user: %v", err)
 	}
 
 	// Setup router
@@ -136,6 +139,7 @@ func (suite *IntegrationTestSuite) cleanupTestData() {
 	// Delete in order to respect foreign key constraints
 	suite.db.Exec("DELETE FROM enrollments")
 	suite.db.Exec("DELETE FROM courses")
+	// Don't delete users as we need admin user for tests
 }
 
 // makeRequest is a helper function to make HTTP requests to the test server

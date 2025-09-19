@@ -159,7 +159,7 @@ func (suite *IntegrationTestSuite) TestGetStudentEnrollments() {
 
 	// Make request
 	url := fmt.Sprintf("/api/v1/students/%s/enrollments", studentEmail)
-	recorder := suite.makeRequest("GET", url, nil, nil)
+	recorder := suite.makeRequest("GET", url, nil, suite.getAuthHeaders())
 
 	// Assert response
 	suite.Equal(http.StatusOK, recorder.Code)
@@ -189,7 +189,7 @@ func (suite *IntegrationTestSuite) TestGetStudentEnrollmentsEmpty() {
 
 	// Make request without creating any enrollments
 	url := fmt.Sprintf("/api/v1/students/%s/enrollments", studentEmail)
-	recorder := suite.makeRequest("GET", url, nil, nil)
+	recorder := suite.makeRequest("GET", url, nil, suite.getAuthHeaders())
 
 	// Assert response
 	suite.Equal(http.StatusOK, recorder.Code)
@@ -207,7 +207,7 @@ func (suite *IntegrationTestSuite) TestGetStudentEnrollmentsInvalidEmail() {
 	invalidEmail := "invalid-email"
 
 	url := fmt.Sprintf("/api/v1/students/%s/enrollments", invalidEmail)
-	recorder := suite.makeRequest("GET", url, nil, nil)
+	recorder := suite.makeRequest("GET", url, nil, suite.getAuthHeaders())
 
 	suite.assertErrorResponse(recorder, http.StatusBadRequest, "Invalid email format")
 }
@@ -230,7 +230,7 @@ func (suite *IntegrationTestSuite) TestGetStudentEnrollmentsWithCourseDetails() 
 
 	// Make request
 	url := fmt.Sprintf("/api/v1/students/%s/enrollments", studentEmail)
-	recorder := suite.makeRequest("GET", url, nil, nil)
+	recorder := suite.makeRequest("GET", url, nil, suite.getAuthHeaders())
 
 	// Assert response
 	suite.Equal(http.StatusOK, recorder.Code)
