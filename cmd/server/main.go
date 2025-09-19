@@ -72,15 +72,19 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	// Run migrations first
-	if err := database.Migrate(db); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
-	}
-	log.Println("Database migrations completed successfully")
+	// Run migrations first (unless skipped)
+	if !cfg.SkipMigration {
+		if err := database.Migrate(db); err != nil {
+			log.Fatalf("Failed to run migrations: %v", err)
+		}
+		log.Println("Database migrations completed successfully")
 
-	// Seed database with demo data
-	if err := database.Seed(db); err != nil {
-		log.Printf("Warning: Failed to seed database: %v", err)
+		// Seed database with demo data
+		if err := database.Seed(db); err != nil {
+			log.Printf("Warning: Failed to seed database: %v", err)
+		}
+	} else {
+		log.Println("Skipping database migrations (SKIP_MIGRATION=true)")
 	}
 
 	// Setup router

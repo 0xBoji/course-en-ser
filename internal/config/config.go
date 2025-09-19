@@ -9,10 +9,11 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Port      string         `mapstructure:"PORT"`
-	Database  DatabaseConfig `mapstructure:"database"`
-	Redis     RedisConfig    `mapstructure:"redis"`
-	JWTSecret string         `mapstructure:"JWT_SECRET"`
+	Port          string         `mapstructure:"PORT"`
+	SkipMigration bool           `mapstructure:"SKIP_MIGRATION"`
+	Database      DatabaseConfig `mapstructure:"database"`
+	Redis         RedisConfig    `mapstructure:"redis"`
+	JWTSecret     string         `mapstructure:"JWT_SECRET"`
 }
 
 // DatabaseConfig holds database configuration
@@ -48,6 +49,7 @@ func Load() *Config {
 	viper.SetDefault("redis.password", "")
 	viper.SetDefault("redis.db", 0)
 	viper.SetDefault("JWT_SECRET", "your-default-jwt-secret-change-this")
+	viper.SetDefault("SKIP_MIGRATION", false)
 	viper.SetDefault("admin.username", "admin")
 	viper.SetDefault("admin.password", "admin!dev")
 
@@ -78,6 +80,9 @@ func Load() *Config {
 	}
 	if jwtSecret := os.Getenv("JWT_SECRET"); jwtSecret != "" {
 		viper.Set("JWT_SECRET", jwtSecret)
+	}
+	if skipMigration := os.Getenv("SKIP_MIGRATION"); skipMigration != "" {
+		viper.Set("SKIP_MIGRATION", skipMigration == "true")
 	}
 	if adminUsername := os.Getenv("ADMIN_USERNAME"); adminUsername != "" {
 		viper.Set("admin.username", adminUsername)
