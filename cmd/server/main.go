@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sonic-labs/course-enrollment-service/internal/auth"
 	"sonic-labs/course-enrollment-service/internal/config"
 	"sonic-labs/course-enrollment-service/internal/database"
 	"sonic-labs/course-enrollment-service/internal/router"
@@ -62,16 +63,20 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
+	// Initialize JWT secret
+	auth.SetJWTSecret(cfg.JWTSecret)
+
 	// Initialize database
 	db, err := database.Initialize(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	// Run migrations
+	// Run migrations first
 	if err := database.Migrate(db); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
+	log.Println("Database migrations completed successfully")
 
 	// Seed database with demo data
 	if err := database.Seed(db); err != nil {

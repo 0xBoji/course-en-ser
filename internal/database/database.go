@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"log"
+	"os"
 	"sonic-labs/course-enrollment-service/internal/config"
 	"sonic-labs/course-enrollment-service/internal/models"
 
@@ -42,16 +43,41 @@ func Initialize(cfg *config.Config) (*gorm.DB, error) {
 	return db, nil
 }
 
-// Migrate runs database migrations
+// Migrate runs database migrations using SQL files
 func Migrate(db *gorm.DB) error {
 	log.Println("Running database migrations...")
 
-	err := db.AutoMigrate(
-		&models.Course{},
-		&models.Enrollment{},
-	)
+	// Get the underlying sql.DB
+	sqlDB, err := db.DB()
 	if err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
+		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
+	}
+
+	// Read and execute migration files
+	migrationFiles := []string{
+		"001_create_courses_table.sql",
+		"002_create_enrollments_table.sql", 
+		"003_seed_demo_courses.sql",
+		"004_create_admin_user.sql",
+	}
+
+	for _, filename := range migrationFiles {
+		migrationPath := fmt.Sprintf("migrations/%s", filename)
+		log.Printf("Executing migration: %s", filename)
+		
+		// Read migration file
+		migrationSQL, err := os.ReadFile(migrationPath)
+		if err != nil {
+			return fmt.Errorf("failed to read migration file %s: %w", filename, err)
+		}
+
+		// Execute migration
+		_, err = sqlDB.Exec(string(migrationSQL))
+		if err != nil {
+			return fmt.Errorf("failed to execute migration %s: %w", filename, err)
+		}
+		
+		log.Printf("Successfully executed migration: %s", filename)
 	}
 
 	log.Println("Database migrations completed successfully")

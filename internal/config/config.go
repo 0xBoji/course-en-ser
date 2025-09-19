@@ -9,8 +9,9 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Port     string         `mapstructure:"PORT"`
-	Database DatabaseConfig `mapstructure:"database"`
+	Port      string         `mapstructure:"PORT"`
+	Database  DatabaseConfig `mapstructure:"database"`
+	JWTSecret string         `mapstructure:"JWT_SECRET"`
 }
 
 // DatabaseConfig holds database configuration
@@ -33,6 +34,9 @@ func Load() *Config {
 	viper.SetDefault("database.password", "password")
 	viper.SetDefault("database.dbname", "course_enrollment")
 	viper.SetDefault("database.sslmode", "disable")
+	viper.SetDefault("JWT_SECRET", "your-default-jwt-secret-change-this")
+	viper.SetDefault("admin.username", "admin")
+	viper.SetDefault("admin.password", "admin!dev")
 
 	// Load from environment variables
 	viper.AutomaticEnv()
@@ -58,6 +62,15 @@ func Load() *Config {
 	}
 	if sslMode := os.Getenv("DB_SSLMODE"); sslMode != "" {
 		viper.Set("database.sslmode", sslMode)
+	}
+	if jwtSecret := os.Getenv("JWT_SECRET"); jwtSecret != "" {
+		viper.Set("JWT_SECRET", jwtSecret)
+	}
+	if adminUsername := os.Getenv("ADMIN_USERNAME"); adminUsername != "" {
+		viper.Set("admin.username", adminUsername)
+	}
+	if adminPassword := os.Getenv("ADMIN_PASSWORD"); adminPassword != "" {
+		viper.Set("admin.password", adminPassword)
 	}
 
 	var config Config

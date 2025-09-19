@@ -4,6 +4,7 @@ import (
 	"log"
 	"sonic-labs/course-enrollment-service/internal/config"
 	"sonic-labs/course-enrollment-service/internal/handler"
+	"sonic-labs/course-enrollment-service/internal/middleware"
 	"sonic-labs/course-enrollment-service/internal/repository"
 	"sonic-labs/course-enrollment-service/internal/service"
 
@@ -30,14 +31,21 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		log.Printf("API Response: %s %s -> %d", c.Request.Method, c.Request.URL.Path, c.Writer.Status())
 	})
 
+	// Initialize repositories
 	courseRepo := repository.NewCourseRepository(db)
 	enrollmentRepo := repository.NewEnrollmentRepository(db)
+	userRepo := repository.NewUserRepository(db)
 
+	// Initialize services
 	courseService := service.NewCourseService(courseRepo)
 	enrollmentService := service.NewEnrollmentService(enrollmentRepo, courseRepo)
+	authService := service.NewAuthService(userRepo)
 
+	// Initialize handlers
 	courseHandler := handler.NewCourseHandler(courseService)
 	enrollmentHandler := handler.NewEnrollmentHandler(enrollmentService)
+	authHandler := handler.NewAuthHandler(authService)
+	// Health check endpoint
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status":  "healthy",
@@ -45,14 +53,35 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		})
 	})
 
+	// API v1 routes
 	v1 := r.Group("/api/v1")
 	{
-		v1.GET("/courses", courseHandler.GetAllCourses)
-		v1.POST("/courses", courseHandler.CreateCourse)
-		v1.GET("/courses/:id", courseHandler.GetCourseByID)
+		// Authentication routes (public)
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/login", authHandler.Login)
+			auth.GET("/profile", middleware.AuthMiddleware(), authHandler.GetProfile)
+		}
 
-		v1.POST("/enrollments", enrollmentHandler.EnrollStudent)
-		v1.GET("/students/:email/enrollments", enrollmentHandler.GetStudentEnrollments)
+		// Course routes
+		courses := v1.Group("/courses")
+		{
+			courses.GET("", courseHandler.GetAllCourses)                                                            // Public - read courses
+			courses.POST("", middleware.AuthMiddleware(), middleware.AdminMiddleware(), courseHandler.CreateCourse) // Protected - admin only
+			courses.GET("/:id", courseHandler.GetCourseByID)                                                        // Public - read specific course
+		}
+
+		// Enrollment routes
+		enrollments := v1.Group("/enrollments")
+		{
+			enrollments.POST("", middleware.AuthMiddleware(), middleware.AdminMiddleware(), enrollmentHandler.EnrollStudent) // Protected - admin only
+		}
+
+		// Student routes
+		students := v1.Group("/students")
+		{
+			students.GET("/:email/enrollments", enrollmentHandler.GetStudentEnrollments) // Public - read enrollments
+		}
 	}
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
