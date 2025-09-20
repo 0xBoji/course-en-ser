@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 	"net/url"
+	"sonic-labs/course-enrollment-service/internal/constants"
 	"sonic-labs/course-enrollment-service/internal/models"
 	"sonic-labs/course-enrollment-service/internal/service"
 	"strconv"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // CourseHandler handles course-related HTTP requests
@@ -305,6 +308,125 @@ func (h *CourseHandler) GetCourseByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, course)
+}
+
+// UpdateCourse updates an existing course
+// @Summary Update a course
+// @Description Update an existing course by ID (Admin only)
+// @Tags courses
+// @Accept json
+// @Produce json
+// @Param id path string true "Course ID"
+// @Param course body models.CourseRequest true "Course update data"
+// @Success 200 {object} models.CourseResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /courses/{id} [put]
+func (h *CourseHandler) UpdateCourse(c *gin.Context) {
+	log.Printf("API Request: PUT %s from %s", c.Request.URL.Path, c.ClientIP())
+
+	// Parse course ID
+	courseIDStr := c.Param("id")
+	courseID, err := uuid.Parse(courseIDStr)
+	if err != nil {
+		log.Printf("API Response: PUT %s -> 400", c.Request.URL.Path)
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   constants.HTTPBadRequest,
+			Message: "Invalid course ID format",
+		})
+		return
+	}
+
+	// Parse request body
+	var req models.CourseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("API Response: PUT %s -> 400", c.Request.URL.Path)
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   constants.HTTPBadRequest,
+			Message: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	// Update course
+	response, err := h.courseService.UpdateCourse(courseID, req)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			log.Printf("API Response: PUT %s -> 404", c.Request.URL.Path)
+			c.JSON(http.StatusNotFound, ErrorResponse{
+				Error:   constants.HTTPNotFound,
+				Message: "Course not found",
+			})
+			return
+		}
+
+		log.Printf("API Response: PUT %s -> 500", c.Request.URL.Path)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   constants.HTTPInternalServerError,
+			Message: "Failed to update course",
+		})
+		return
+	}
+
+	log.Printf("API Response: PUT %s -> 200", c.Request.URL.Path)
+	c.JSON(http.StatusOK, response)
+}
+
+// DeleteCourse deletes a course
+// @Summary Delete a course
+// @Description Delete a course by ID (Admin only)
+// @Tags courses
+// @Produce json
+// @Param id path string true "Course ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /courses/{id} [delete]
+func (h *CourseHandler) DeleteCourse(c *gin.Context) {
+	log.Printf("API Request: DELETE %s from %s", c.Request.URL.Path, c.ClientIP())
+
+	// Parse course ID
+	courseIDStr := c.Param("id")
+	courseID, err := uuid.Parse(courseIDStr)
+	if err != nil {
+		log.Printf("API Response: DELETE %s -> 400", c.Request.URL.Path)
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   constants.HTTPBadRequest,
+			Message: "Invalid course ID format",
+		})
+		return
+	}
+
+	// Delete course
+	err = h.courseService.DeleteCourse(courseID)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			log.Printf("API Response: DELETE %s -> 404", c.Request.URL.Path)
+			c.JSON(http.StatusNotFound, ErrorResponse{
+				Error:   constants.HTTPNotFound,
+				Message: "Course not found",
+			})
+			return
+		}
+
+		log.Printf("API Response: DELETE %s -> 500", c.Request.URL.Path)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   constants.HTTPInternalServerError,
+			Message: "Failed to delete course",
+		})
+		return
+	}
+
+	log.Printf("API Response: DELETE %s -> 204", c.Request.URL.Path)
+	c.Status(http.StatusNoContent)
 }
 
 // isValidURL checks if a string is a valid URL

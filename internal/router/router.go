@@ -51,6 +51,7 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	courseService := service.NewCourseService(courseRepo, redisService)
 	enrollmentService := service.NewEnrollmentService(enrollmentRepo, courseRepo)
 	authService := service.NewAuthService(userRepo)
+	studentService := service.NewStudentService(enrollmentRepo)
 
 	// Initialize S3 service
 	s3Service := service.NewS3Service()
@@ -58,6 +59,7 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	// Initialize handlers
 	courseHandler := handler.NewCourseHandler(courseService, s3Service)
 	enrollmentHandler := handler.NewEnrollmentHandler(enrollmentService)
+	studentHandler := handler.NewStudentHandler(studentService)
 	authHandler := handler.NewAuthHandler(authService)
 	// Health check endpoint
 	r.GET("/health", func(c *gin.Context) {
@@ -139,12 +141,22 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			{
 				courses.POST("", courseHandler.CreateCourse)                 // Admin only - create course JSON (default)
 				courses.POST("/upload", courseHandler.CreateCourseWithImage) // Admin only - create course with image upload
+				courses.PUT("/:id", courseHandler.UpdateCourse)              // Admin only - update course
+				courses.DELETE("/:id", courseHandler.DeleteCourse)           // Admin only - delete course
 			}
 
 			// Enrollment routes - admin only
 			enrollments := adminRoutes.Group("/enrollments")
 			{
 				enrollments.POST("", enrollmentHandler.EnrollStudent) // Admin only - enroll student
+			}
+
+			// Admin routes for student and enrollment management
+			admin := adminRoutes.Group("/admin")
+			{
+				admin.GET("/students", studentHandler.GetAllStudents)             // Admin only - get all students
+				admin.GET("/enrollments", studentHandler.GetAllEnrollments)       // Admin only - get all enrollments
+				admin.DELETE("/enrollments/:id", studentHandler.DeleteEnrollment) // Admin only - delete enrollment
 			}
 
 			// Student management routes - admin only (write operations only, reads are public)

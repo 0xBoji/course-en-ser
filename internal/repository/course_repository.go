@@ -15,6 +15,7 @@ type CourseRepository interface {
 	GetByID(id uuid.UUID) (*models.Course, error)
 	Update(course *models.Course) error
 	Delete(id uuid.UUID) error
+	ExistsByID(id uuid.UUID) (bool, error)
 }
 
 // courseRepository implements CourseRepository interface
@@ -89,5 +90,22 @@ func (r *courseRepository) Update(course *models.Course) error {
 
 // Delete deletes a course by ID
 func (r *courseRepository) Delete(id uuid.UUID) error {
-	return r.db.Delete(&models.Course{}, id).Error
+	result := r.db.Delete(&models.Course{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// ExistsByID checks if a course exists by ID
+func (r *courseRepository) ExistsByID(id uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.Course{}).Where("id = ?", id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

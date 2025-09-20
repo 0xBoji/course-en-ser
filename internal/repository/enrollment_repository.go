@@ -15,6 +15,9 @@ type EnrollmentRepository interface {
 	GetByStudentAndCourse(email string, courseID uuid.UUID) (*models.Enrollment, error)
 	ExistsByStudentAndCourse(email string, courseID uuid.UUID) (bool, error)
 	Delete(id uuid.UUID) error
+	GetAllStudents() ([]models.StudentResponse, error)
+	GetAllEnrollments() ([]models.EnrollmentWithCourse, error)
+	GetByID(id uuid.UUID) (*models.Enrollment, error)
 }
 
 // enrollmentRepository implements EnrollmentRepository interface
@@ -65,5 +68,61 @@ func (r *enrollmentRepository) ExistsByStudentAndCourse(email string, courseID u
 
 // Delete deletes an enrollment by ID
 func (r *enrollmentRepository) Delete(id uuid.UUID) error {
-	return r.db.Delete(&models.Enrollment{}, id).Error
+	result := r.db.Delete(&models.Enrollment{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// GetByID retrieves an enrollment by ID
+func (r *enrollmentRepository) GetByID(id uuid.UUID) (*models.Enrollment, error) {
+	var enrollment models.Enrollment
+	err := r.db.Preload("Course").Where("id = ?", id).First(&enrollment).Error
+	if err != nil {
+		return nil, err
+	}
+	return &enrollment, nil
+}
+
+// GetAllStudents retrieves all unique students with their enrollment count
+func (r *enrollmentRepository) GetAllStudents() ([]models.StudentResponse, error) {
+	var students []models.StudentResponse
+
+	query := `
+		SELECT
+			student_email as email,
+			COUNT(*) as enrollment_count,
+			MAX(enrolled_at) as last_enrolled_at
+		FROM enrollments
+		GROUP BY student_email
+		ORDER BY enrollment_count DESC, last_enrolled_at DESC
+	`
+
+	err := r.db.Raw(query).Scan(&students).Error
+	return students, err
+}
+
+// GetAllEnrollments retrieves all enrollments with course details
+func (r *enrollmentRepository) GetAllEnrollments() ([]models.EnrollmentWithCourse, error) {
+	var enrollments []models.Enrollment
+	err := r.db.Preload("Course").Order("enrolled_at DESC").Find(&enrollments).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var result []models.EnrollmentWithCourse
+	for _, enrollment := range enrollments {
+		result = append(result, models.EnrollmentWithCourse{
+			ID:           enrollment.ID,
+			StudentEmail: enrollment.StudentEmail,
+			Course:       enrollment.Course.ToResponse(),
+			EnrolledAt:   enrollment.EnrolledAt,
+		})
+	}
+
+	return result, nil
 }

@@ -87,3 +87,30 @@ func (c *Course) ToResponse() CourseResponse {
 		CreatedAt:   c.CreatedAt,
 	}
 }
+
+// StudentResponse represents a student with their enrollment count
+type StudentResponse struct {
+	Email           string `json:"email" example:"student@example.com"`
+	EnrollmentCount int    `json:"enrollment_count" example:"3"`
+	LastEnrolledAt  string `json:"last_enrolled_at,omitempty" example:"2023-01-01T00:00:00Z"`
+}
+
+// AllStudentsResponse represents the response for all students
+type AllStudentsResponse struct {
+	Students []StudentResponse `json:"students"`
+	Total    int               `json:"total"`
+}
+
+// AllEnrollmentsResponse represents the response for all enrollments
+type AllEnrollmentsResponse struct {
+	Enrollments []EnrollmentWithCourse `json:"enrollments"`
+	Total       int                    `json:"total"`
+}
+
+// EnrollmentWithCourse represents an enrollment with course details
+type EnrollmentWithCourse struct {
+	ID           uuid.UUID      `json:"id"`
+	StudentEmail string         `json:"student_email"`
+	Course       CourseResponse `json:"course"`
+	EnrolledAt   time.Time      `json:"enrolled_at"`
+}
