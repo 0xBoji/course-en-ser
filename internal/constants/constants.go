@@ -15,6 +15,15 @@ const (
 	MsgNotFound            = "Not found"
 	MsgConflict            = "Conflict"
 
+	// HTTP Response Messages (for handlers)
+	HTTPSuccess             = "Success"
+	HTTPBadRequest          = "Bad Request"
+	HTTPUnauthorized        = "Unauthorized"
+	HTTPForbidden           = "Forbidden"
+	HTTPNotFound            = "Not Found"
+	HTTPConflict            = "Conflict"
+	HTTPInternalServerError = "Internal Server Error"
+
 	// Authentication Messages
 	MsgInvalidCredentials  = "Invalid username or password"
 	MsgAuthHeaderRequired  = "Authorization header is required"
