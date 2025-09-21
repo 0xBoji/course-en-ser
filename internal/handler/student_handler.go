@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"sonic-labs/course-enrollment-service/internal/constants"
-	"sonic-labs/course-enrollment-service/internal/models"
 	"sonic-labs/course-enrollment-service/internal/service"
 
 	"github.com/gin-gonic/gin"
