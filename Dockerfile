@@ -20,8 +20,8 @@ COPY . .
 RUN go install github.com/swaggo/swag/cmd/swag@latest
 RUN swag init -g cmd/server/main.go -o docs
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server cmd/server/main.go
+# Build the application with optimizations
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server cmd/server/main.go
 
 # Final stage
 FROM alpine:latest

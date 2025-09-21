@@ -1,0 +1,39 @@
+# Minimal build for EC2
+FROM golang:1.24-alpine AS builder
+
+WORKDIR /app
+
+# Install minimal dependencies
+RUN apk add --no-cache git ca-certificates
+
+# Copy go files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Build without swagger first (to save space)
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server cmd/server/main.go
+
+# Generate docs in separate step
+RUN go install github.com/swaggo/swag/cmd/swag@latest && \
+    swag init -g cmd/server/main.go -o docs
+
+# Final minimal image
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /app
+
+# Copy binary and docs
+COPY --from=builder /app/server .
+COPY --from=builder /app/docs ./docs
+
+# Create logs directory
+RUN mkdir -p logs && chmod 755 logs
+
+EXPOSE 8080
+
+CMD ["./server"]
