@@ -13,12 +13,12 @@ RUN go mod download
 # Copy source
 COPY . .
 
-# Build without swagger first (to save space)
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server cmd/server/main.go
-
-# Generate docs in separate step
+# Generate docs FIRST (required for build)
 RUN go install github.com/swaggo/swag/cmd/swag@latest && \
     swag init -g cmd/server/main.go -o docs
+
+# Build after docs are generated
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server cmd/server/main.go
 
 # Final minimal image
 FROM alpine:latest
