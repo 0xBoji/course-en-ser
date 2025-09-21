@@ -429,6 +429,135 @@ func (h *CourseHandler) DeleteCourse(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// GetCourseStudents retrieves all students enrolled in a specific course
+// @Summary Get course students
+// @Description Get all student emails enrolled in a specific course (Admin only)
+// @Tags admin
+// @Produce json
+// @Param id path string true "Course ID"
+// @Success 200 {object} map[string]interface{} "{"students": ["email1", "email2"], "total": 2}"
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /courses/{id}/students [get]
+func (h *CourseHandler) GetCourseStudents(c *gin.Context) {
+	log.Printf("API Request: GET %s from %s", c.Request.URL.Path, c.ClientIP())
+
+	// Parse course ID
+	courseIDStr := c.Param("id")
+	courseID, err := uuid.Parse(courseIDStr)
+	if err != nil {
+		log.Printf("API Response: GET %s -> 400", c.Request.URL.Path)
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   constants.HTTPBadRequest,
+			Message: "Invalid course ID format",
+		})
+		return
+	}
+
+	// Get course students
+	students, err := h.courseService.GetCourseStudents(courseID)
+	if err != nil {
+		if err.Error() == "course not found" {
+			log.Printf("API Response: GET %s -> 404", c.Request.URL.Path)
+			c.JSON(http.StatusNotFound, ErrorResponse{
+				Error:   constants.HTTPNotFound,
+				Message: "Course not found",
+			})
+			return
+		}
+
+		log.Printf("API Response: GET %s -> 500", c.Request.URL.Path)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   constants.HTTPInternalServerError,
+			Message: "Failed to retrieve course students",
+		})
+		return
+	}
+
+	log.Printf("API Response: GET %s -> 200", c.Request.URL.Path)
+	c.JSON(http.StatusOK, gin.H{
+		"students": students,
+		"total":    len(students),
+	})
+}
+
+// RemoveStudentFromCourse removes a student from a specific course
+// @Summary Remove student from course
+// @Description Remove a student from a specific course (Admin only)
+// @Tags admin
+// @Produce json
+// @Param id path string true "Course ID"
+// @Param email path string true "Student Email"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security BearerAuth
+// @Router /courses/{id}/students/{email} [delete]
+func (h *CourseHandler) RemoveStudentFromCourse(c *gin.Context) {
+	log.Printf("API Request: DELETE %s from %s", c.Request.URL.Path, c.ClientIP())
+
+	// Parse course ID
+	courseIDStr := c.Param("id")
+	courseID, err := uuid.Parse(courseIDStr)
+	if err != nil {
+		log.Printf("API Response: DELETE %s -> 400", c.Request.URL.Path)
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   constants.HTTPBadRequest,
+			Message: "Invalid course ID format",
+		})
+		return
+	}
+
+	// Get student email
+	studentEmail := c.Param("email")
+	if studentEmail == "" {
+		log.Printf("API Response: DELETE %s -> 400", c.Request.URL.Path)
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   constants.HTTPBadRequest,
+			Message: "Student email is required",
+		})
+		return
+	}
+
+	// Remove student from course
+	err = h.courseService.RemoveStudentFromCourse(courseID, studentEmail)
+	if err != nil {
+		if err.Error() == "course not found" {
+			log.Printf("API Response: DELETE %s -> 404", c.Request.URL.Path)
+			c.JSON(http.StatusNotFound, ErrorResponse{
+				Error:   constants.HTTPNotFound,
+				Message: "Course not found",
+			})
+			return
+		}
+		if err.Error() == "student not enrolled in this course" {
+			log.Printf("API Response: DELETE %s -> 404", c.Request.URL.Path)
+			c.JSON(http.StatusNotFound, ErrorResponse{
+				Error:   constants.HTTPNotFound,
+				Message: "Student not enrolled in this course",
+			})
+			return
+		}
+
+		log.Printf("API Response: DELETE %s -> 500", c.Request.URL.Path)
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   constants.HTTPInternalServerError,
+			Message: "Failed to remove student from course",
+		})
+		return
+	}
+
+	log.Printf("API Response: DELETE %s -> 204", c.Request.URL.Path)
+	c.Status(http.StatusNoContent)
+}
+
 // isValidURL checks if a string is a valid URL
 func isValidURL(str string) bool {
 	u, err := url.Parse(str)

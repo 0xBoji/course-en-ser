@@ -48,7 +48,7 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	}
 
 	// Initialize services
-	courseService := service.NewCourseService(courseRepo, redisService)
+	courseService := service.NewCourseService(courseRepo, enrollmentRepo, redisService)
 	enrollmentService := service.NewEnrollmentService(enrollmentRepo, courseRepo)
 	authService := service.NewAuthService(userRepo)
 	studentService := service.NewStudentService(enrollmentRepo)
@@ -139,10 +139,12 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			// Course management routes - admin only (write operations)
 			courses := adminRoutes.Group("/courses")
 			{
-				courses.POST("", courseHandler.CreateCourse)                 // Admin only - create course JSON (default)
-				courses.POST("/upload", courseHandler.CreateCourseWithImage) // Admin only - create course with image upload
-				courses.PUT("/:id", courseHandler.UpdateCourse)              // Admin only - update course
-				courses.DELETE("/:id", courseHandler.DeleteCourse)           // Admin only - delete course
+				courses.POST("", courseHandler.CreateCourse)                                  // Admin only - create course JSON (default)
+				courses.POST("/upload", courseHandler.CreateCourseWithImage)                  // Admin only - create course with image upload
+				courses.PUT("/:id", courseHandler.UpdateCourse)                               // Admin only - update course
+				courses.DELETE("/:id", courseHandler.DeleteCourse)                            // Admin only - delete course
+				courses.GET("/:id/students", courseHandler.GetCourseStudents)                 // Admin only - get course students
+				courses.DELETE("/:id/students/:email", courseHandler.RemoveStudentFromCourse) // Admin only - remove student from course
 			}
 
 			// Enrollment routes - admin only

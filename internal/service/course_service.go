@@ -18,19 +18,23 @@ type CourseService interface {
 	GetCourseByID(id uuid.UUID) (*models.CourseResponse, error)
 	UpdateCourse(id uuid.UUID, req models.CourseRequest) (*models.CourseResponse, error)
 	DeleteCourse(id uuid.UUID) error
+	GetCourseStudents(courseID uuid.UUID) ([]string, error)
+	RemoveStudentFromCourse(courseID uuid.UUID, studentEmail string) error
 }
 
 // courseService implements CourseService interface
 type courseService struct {
-	courseRepo   repository.CourseRepository
-	redisService *RedisService
+	courseRepo     repository.CourseRepository
+	enrollmentRepo repository.EnrollmentRepository
+	redisService   *RedisService
 }
 
 // NewCourseService creates a new course service
-func NewCourseService(courseRepo repository.CourseRepository, redisService *RedisService) CourseService {
+func NewCourseService(courseRepo repository.CourseRepository, enrollmentRepo repository.EnrollmentRepository, redisService *RedisService) CourseService {
 	return &courseService{
-		courseRepo:   courseRepo,
-		redisService: redisService,
+		courseRepo:     courseRepo,
+		enrollmentRepo: enrollmentRepo,
+		redisService:   redisService,
 	}
 }
 
@@ -201,4 +205,41 @@ func (s *courseService) DeleteCourse(id uuid.UUID) error {
 	}
 
 	return s.courseRepo.Delete(id)
+}
+
+// GetCourseStudents retrieves all student emails enrolled in a course
+func (s *courseService) GetCourseStudents(courseID uuid.UUID) ([]string, error) {
+	// Check if course exists
+	_, err := s.courseRepo.GetByID(courseID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("course not found")
+		}
+		return nil, err
+	}
+
+	return s.enrollmentRepo.GetStudentsByCourseID(courseID)
+}
+
+// RemoveStudentFromCourse removes a student from a specific course
+func (s *courseService) RemoveStudentFromCourse(courseID uuid.UUID, studentEmail string) error {
+	// Check if course exists
+	_, err := s.courseRepo.GetByID(courseID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("course not found")
+		}
+		return err
+	}
+
+	// Remove enrollment
+	err = s.enrollmentRepo.DeleteByStudentAndCourse(studentEmail, courseID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("student not enrolled in this course")
+		}
+		return err
+	}
+
+	return nil
 }

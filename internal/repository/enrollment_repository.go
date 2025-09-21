@@ -18,6 +18,8 @@ type EnrollmentRepository interface {
 	GetAllStudents() ([]models.StudentResponse, error)
 	GetAllEnrollments() ([]models.EnrollmentWithCourse, error)
 	GetByID(id uuid.UUID) (*models.Enrollment, error)
+	GetStudentsByCourseID(courseID uuid.UUID) ([]string, error)
+	DeleteByStudentAndCourse(studentEmail string, courseID uuid.UUID) error
 }
 
 // enrollmentRepository implements EnrollmentRepository interface
@@ -125,4 +127,26 @@ func (r *enrollmentRepository) GetAllEnrollments() ([]models.EnrollmentWithCours
 	}
 
 	return result, nil
+}
+
+// GetStudentsByCourseID retrieves all student emails enrolled in a specific course
+func (r *enrollmentRepository) GetStudentsByCourseID(courseID uuid.UUID) ([]string, error) {
+	var emails []string
+	err := r.db.Model(&models.Enrollment{}).
+		Where("course_id = ?", courseID).
+		Pluck("student_email", &emails).Error
+	return emails, err
+}
+
+// DeleteByStudentAndCourse deletes an enrollment by student email and course ID
+func (r *enrollmentRepository) DeleteByStudentAndCourse(studentEmail string, courseID uuid.UUID) error {
+	result := r.db.Where("student_email = ? AND course_id = ?", studentEmail, courseID).
+		Delete(&models.Enrollment{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
 }
